@@ -1,8 +1,9 @@
 -- Chia Extension for MoneyMoney
--- Fetches balances from xchscan api
+-- Fetches balances from spacescan.io API
 --
 -- Copyright (c) 2021 amnesia106
---  xch1hyqsupkrpanpua355fg7hkq3aufzhyrulv3empkq3w9cl3ltptdsaac45u - CHIA
+-- Adapted for spacescan.io API in 2025
+-- xch1hyqsupkrpanpua355fg7hkq3aufzhyrulv3empkq3w9cl3ltptdsaac45u - CHIA
 -- S-A4PZ-XVX8-RN9N-76HPE - SIGNA
 --
 -- Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -24,24 +25,24 @@
 -- SOFTWARE.
 
 WebBanking{
-  version = 0.1,
-  description = "Include your Chia as cryptoportfolio in MoneyMoney by providing chia wallet addresses as usernme (comma seperated)",
-  services= { "Chia" }
+  version = 0.4,
+  description = "Include your Chia as cryptoportfolio in MoneyMoney by providing chia wallet addresses as username (comma separated)",
+  services = { "Chia" }
 }
 
 local chiaAddress
 local connection = Connection()
 local currency = "EUR"
 
-function SupportsBank (protocol, bankCode)
+function SupportsBank(protocol, bankCode)
   return protocol == ProtocolWebBanking and bankCode == "Chia"
 end
 
-function InitializeSession (protocol, bankCode, username, username2, password, username3)
+function InitializeSession(protocol, bankCode, username, username2, password, username3)
   chiaAddress = username:gsub("%s+", "")
 end
 
-function ListAccounts (knownAccounts)
+function ListAccounts(knownAccounts)
   local account = {
     name = "Chia",
     accountNumber = "Chia",
@@ -49,18 +50,17 @@ function ListAccounts (knownAccounts)
     portfolio = true,
     type = "AccountTypePortfolio"
   }
-
-  return {account}
+  return { account }
 end
 
-function RefreshAccount (account, since)
+function RefreshAccount(account, since)
   local s = {}
-  prices = requestchiaPrice()
+  prices = requestChiaPrice()
 
   for address in string.gmatch(chiaAddress, '([^,]+)') do
-    chiaQuantity = requestChiaQuantityForchiaAddress(address)
+    chiaQuantity = requestChiaQuantityForChiaAddress(address)
 
-    s[#s+1] = {
+    s[#s + 1] = {
       name = address,
       currency = nil,
       market = "cryptocompare",
@@ -69,32 +69,42 @@ function RefreshAccount (account, since)
     }
   end
 
-  return {securities = s}
+  return { securities = s }
 end
 
-function EndSession ()
+function EndSession()
 end
 
-function requestchiaPrice()
-  response = connection:request("GET", crypocompareRequestUrl(), {})
+function requestChiaPrice()
+  response = connection:request("GET", cryptoCompareRequestUrl(), {})
   json = JSON(response)
   return json:dictionary()['EUR']
 end
 
-
-function requestChiaQuantityForchiaAddress(chiaAddress)
+function requestChiaQuantityForChiaAddress(chiaAddress)
   response = connection:request("GET", ChiaRequestUrl(chiaAddress), {})
   json = JSON(response)
-  XCH = json:dictionary()['xch']
-  return XCH
+  local data = json:dictionary()
+  -- Debugging: API-Antwort ausgeben
+  print("API-Antwort für " .. chiaAddress .. ":")
+  for k, v in pairs(data) do
+    print(k .. ": " .. tostring(v))
+  end
+  if data.status == "success" and data.xch then
+    print("Erfolgreich: Balance = " .. data.xch .. " XCH")
+    return data.xch
+  else
+    print("Fehler bei der Abfrage für Adresse " .. chiaAddress .. ": " .. (data.message or "Unbekannter Fehler"))
+    return 0 -- Fallback: 0 XCH bei Fehler
+  end
 end
 
-function crypocompareRequestUrl()
+function cryptoCompareRequestUrl()
   return "https://min-api.cryptocompare.com/data/price?fsym=XCH&tsyms=EUR"
 end
 
 function ChiaRequestUrl(chiaAddress)
-  return "https://xchscan.com/api/account/balance?address=" .. chiaAddress
+  return "https://api.spacescan.io/address/xch-balance/" .. chiaAddress
 end
 
--- SIGNATURE: MCwCFF21SQIbGAGlkBuDn+rzsQYOCwY4AhRnghZjHLWhI7+jDbvmmG9M3C/kyg==
+-- SIGNATURE: MCwCFDZ5IGuB3g9xQgwdI2imPIVdtZAdAhQvqa0cZdDQbJkMZd7vQ6ELibNsXQ==
